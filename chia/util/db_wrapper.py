@@ -1,6 +1,7 @@
 import asyncio
 
 import aiosqlite
+from chia.util.profiler import InstrumentedLock
 
 
 class DBWrapper:
@@ -14,6 +15,10 @@ class DBWrapper:
     def __init__(self, connection: aiosqlite.Connection):
         self.db = connection
         self.lock = asyncio.Lock()
+#        self.lock = InstrumentedLock("db_wrapper")
+
+#    def __del__(self):
+#        self.lock.log()
 
     async def begin_transaction(self):
         cursor = await self.db.execute("BEGIN TRANSACTION")

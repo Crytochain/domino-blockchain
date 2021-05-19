@@ -2,6 +2,7 @@ import asyncio
 import dataclasses
 import logging
 import multiprocessing
+import pathlib
 from concurrent.futures.process import ProcessPoolExecutor
 from enum import Enum
 from typing import Dict, List, Optional, Set, Tuple, Union
@@ -35,6 +36,7 @@ from chia.util.errors import Err
 from chia.util.generator_tools import get_block_header, tx_removals_and_additions
 from chia.util.ints import uint16, uint32, uint64, uint128
 from chia.util.streamable import recurse_jsonify
+from chia.util.profiler import InstrumentedLock
 
 log = logging.getLogger(__name__)
 
@@ -88,6 +90,7 @@ class Blockchain(BlockchainInterface):
         coin_store: CoinStore,
         block_store: BlockStore,
         consensus_constants: ConsensusConstants,
+        root_path: pathlib.Path
     ):
         """
         Initializes a blockchain with the BlockRecords from disk, assuming they have all been
@@ -95,7 +98,8 @@ class Blockchain(BlockchainInterface):
         in the consensus constants config.
         """
         self = Blockchain()
-        self.lock = asyncio.Lock()  # External lock handled by full node
+#        self.lock = asyncio.Lock()  # External lock handled by full node
+        self.lock = InstrumentedLock("blockchain", root_path)
         cpu_count = multiprocessing.cpu_count()
         if cpu_count > 61:
             cpu_count = 61  # Windows Server 2016 has an issue https://bugs.python.org/issue26903
@@ -113,6 +117,7 @@ class Blockchain(BlockchainInterface):
         return self
 
     def shut_down(self):
+        self.lock.log()
         self._shut_down = True
         self.pool.shutdown(wait=True)
 

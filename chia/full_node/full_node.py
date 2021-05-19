@@ -57,6 +57,7 @@ from chia.util.ints import uint8, uint32, uint64, uint128
 from chia.util.path import mkdir, path_from_root
 from chia.util.safe_cancel_task import cancel_task_safe
 from chia.util.profiler import profile_task
+from chia.util.profiler import InstrumentedLock
 
 
 class FullNode:
@@ -113,7 +114,8 @@ class FullNode:
         self.state_changed_callback = callback
 
     async def _start(self):
-        self.timelord_lock = asyncio.Lock()
+#        self.timelord_lock = asyncio.Lock()
+        self.timelord_lock = InstrumentedLock("timelord", self.root_path)
         self.compact_vdf_lock = asyncio.Semaphore(4)
         self.new_peak_lock = asyncio.Semaphore(8)
         # create the store (db) and full node instance
@@ -124,7 +126,7 @@ class FullNode:
         self.coin_store = await CoinStore.create(self.db_wrapper)
         self.log.info("Initializing blockchain from disk")
         start_time = time.time()
-        self.blockchain = await Blockchain.create(self.coin_store, self.block_store, self.constants)
+        self.blockchain = await Blockchain.create(self.coin_store, self.block_store, self.constants, self.root_path)
         self.mempool_manager = MempoolManager(self.coin_store, self.constants)
         self.weight_proof_handler = None
         asyncio.create_task(self.initialize_weight_proof())
@@ -530,6 +532,7 @@ class FullNode:
         return diff if diff >= 0 else 0
 
     def _close(self):
+        self.timelord_lock.log()
         self._shut_down = True
         if self.blockchain is not None:
             self.blockchain.shut_down()

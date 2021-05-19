@@ -21,6 +21,7 @@ from chia.types.peer_info import PeerInfo, TimestampedPeerInfo
 from chia.util.hash import std_hash
 from chia.util.ints import uint64
 from chia.util.path import mkdir, path_from_root
+from chia.util.profiler import InstrumentedLock
 
 MAX_PEERS_RECEIVED_PER_REQUEST = 1000
 MAX_TOTAL_PEERS_RECEIVED = 3000
@@ -58,7 +59,8 @@ class FullNodeDiscovery:
         self.address_manager: Optional[AddressManager] = None
         self.connection_time_pretest: Dict = {}
         self.received_count_from_peers: Dict = {}
-        self.lock = asyncio.Lock()
+#        self.lock = asyncio.Lock()
+        self.lock = InstrumentedLock("node_discovery", root_path)
         self.connect_peers_task: Optional[asyncio.Task] = None
         self.serialize_task: Optional[asyncio.Task] = None
         self.cleanup_task: Optional[asyncio.Task] = None

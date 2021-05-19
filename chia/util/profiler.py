@@ -2,6 +2,9 @@ import asyncio
 import cProfile
 import logging
 import pathlib
+import time
+from traceback import StackSummary, format_stack
+from typing import Dict, Tuple, Optional
 
 from chia.util.path import mkdir, path_from_root
 
@@ -37,6 +40,68 @@ async def profile_task(root_path: pathlib.Path, log: logging.Logger) -> None:
         log.debug("saving profile %05d" % counter)
         counter += 1
 
+log = logging.getLogger(__name__)
+
+class InstrumentedLock(asyncio.Lock):
+
+    name: str
+    profile_dir: Optional[pathlib.Path] = None
+    current_wait_time: Optional[int] = None
+    current_lock_time: Optional[int] = None
+    current_holder: Optional[str] = None
+#    current_profile: Optional[cProfile.Profile] = None
+
+    # maps call stack to:
+    # (times locked, cumulative-wait-time, cumulative-hold-time)
+    profile: Dict[str, Tuple[int, int, int]] = {}
+
+    def __init__(self, name: str, root_path: Optional[pathlib.Path] = None):
+        self.name = name
+        if root_path:
+            self.profile_dir = path_from_root(root_path, "mutex-profile")
+            mkdir(self.profile_dir)
+        asyncio.Lock.__init__(self)
+
+    async def __aenter__(self):
+        start_wait = time.time()
+        ret = await asyncio.Lock.__aenter__(self)
+        self.current_lock_time = time.time()
+        self.current_wait_time = self.current_lock_time - start_wait
+        self.current_holder = "".join(format_stack(limit=15)[5:-1])
+        if (self.current_wait_time > 1):
+            log.warn(f"Waited for mutex \"{self.name}\" for {self.current_wait_time} seconds.\n{self.current_holder}")
+#        if self.profile_dir:
+#            self.current_profile = cProfile.Profile()
+#            self.current_profile.enable()
+
+        return ret
+
+    async def __aexit__(self, exc_type, exc, tb):
+        release_time: int = time.time()
+        hold_time = release_time - self.current_lock_time
+        if self.current_holder in self.profile:
+            v = self.profile[self.current_holder]
+        else:
+            v = (0, 0, 0)
+        self.profile[self.current_holder] = (v[0] + 1, v[1] + self.current_wait_time, v[2] + hold_time)
+
+        if hold_time > 2:
+            log.warn(f"Held mutex \"{self.name}\" for {hold_time} seconds.\n{self.current_holder}")
+
+#        if self.profile_dir and hold_time > 7:
+#            self.current_profile.create_stats()
+#            self.current_profile.dump_stats(self.profile_dir / f"mutex-hold-{self.name}-{hold_time}.profile")
+
+#        self.current_profile = None
+        self.current_lock_time = None
+        self.current_holder = None
+        self.current_wait_time = None
+        return await asyncio.Lock.__aexit__(self, exc_type, exc, tb)
+
+    def log(self):
+        log.warn(f"Mutex {self.name}:")
+        for c, st in self.profile.items():
+            log.warn(f"Locked {st[0]} times. Average wait time: {st[1] / st[0]} Average hold time: {st[2] / st[0]}.\n{c}")
 
 if __name__ == "__main__":
     import sys
