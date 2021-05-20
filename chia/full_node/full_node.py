@@ -115,7 +115,7 @@ class FullNode:
 
     async def _start(self):
 #        self.timelord_lock = asyncio.Lock()
-        self.timelord_lock = InstrumentedLock("timelord", self.root_path)
+        self.timelord_lock = InstrumentedLock("timelord")
         self.compact_vdf_lock = asyncio.Semaphore(4)
         self.new_peak_lock = asyncio.Semaphore(8)
         # create the store (db) and full node instance
@@ -126,7 +126,7 @@ class FullNode:
         self.coin_store = await CoinStore.create(self.db_wrapper)
         self.log.info("Initializing blockchain from disk")
         start_time = time.time()
-        self.blockchain = await Blockchain.create(self.coin_store, self.block_store, self.constants, self.root_path)
+        self.blockchain = await Blockchain.create(self.coin_store, self.block_store, self.constants)
         self.mempool_manager = MempoolManager(self.coin_store, self.constants)
         self.weight_proof_handler = None
         asyncio.create_task(self.initialize_weight_proof())

@@ -34,6 +34,7 @@ from chia.util.errors import Err
 from chia.util.generator_tools import additions_for_npc
 from chia.util.ints import uint32, uint64
 from chia.util.streamable import recurse_jsonify
+from chia.util.profiler import InstrumentedLock
 
 log = logging.getLogger(__name__)
 
@@ -71,10 +72,12 @@ class MempoolManager:
         # The mempool will correspond to a certain peak
         self.peak: Optional[BlockRecord] = None
         self.mempool: Mempool = Mempool(self.mempool_max_total_cost)
-        self.lock: asyncio.Lock = asyncio.Lock()
+#        self.lock: asyncio.Lock = asyncio.Lock()
+        self.lock: asyncio.Lock = InstrumentedLock("mempool_manager")
 
     def shut_down(self):
         self.pool.shutdown(wait=True)
+        self.lock.log()
 
     async def create_bundle_from_mempool(
         self, last_tb_header_hash: bytes32

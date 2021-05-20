@@ -90,7 +90,6 @@ class Blockchain(BlockchainInterface):
         coin_store: CoinStore,
         block_store: BlockStore,
         consensus_constants: ConsensusConstants,
-        root_path: pathlib.Path
     ):
         """
         Initializes a blockchain with the BlockRecords from disk, assuming they have all been
@@ -99,7 +98,7 @@ class Blockchain(BlockchainInterface):
         """
         self = Blockchain()
 #        self.lock = asyncio.Lock()  # External lock handled by full node
-        self.lock = InstrumentedLock("blockchain", root_path)
+        self.lock = InstrumentedLock("blockchain")
         cpu_count = multiprocessing.cpu_count()
         if cpu_count > 61:
             cpu_count = 61  # Windows Server 2016 has an issue https://bugs.python.org/issue26903

@@ -45,7 +45,7 @@ log = logging.getLogger(__name__)
 class InstrumentedLock(asyncio.Lock):
 
     name: str
-    profile_dir: Optional[pathlib.Path] = None
+#    profile_dir: Optional[pathlib.Path] = None
     current_wait_time: Optional[int] = None
     current_lock_time: Optional[int] = None
     current_holder: Optional[str] = None
@@ -57,9 +57,9 @@ class InstrumentedLock(asyncio.Lock):
 
     def __init__(self, name: str, root_path: Optional[pathlib.Path] = None):
         self.name = name
-        if root_path:
-            self.profile_dir = path_from_root(root_path, "mutex-profile")
-            mkdir(self.profile_dir)
+#        if root_path:
+#            self.profile_dir = path_from_root(root_path, "mutex-profile")
+#            mkdir(self.profile_dir)
         asyncio.Lock.__init__(self)
 
     async def __aenter__(self):
